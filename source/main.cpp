@@ -40,7 +40,7 @@ public:
     virtual tsl::elm::Element* createUI() override {
         // A OverlayFrame is the base element every overlay consists of. This will draw the default Title and Subtitle.
         // If you need more information in the header or want to change it's look, use a HeaderOverlayFrame.
-        auto frame = new tsl::elm::OverlayFrame("tesla-lan-play", "v0.5");
+        auto frame = new tsl::elm::OverlayFrame("tesla-lan-play", "v1.0.0");
 
         // A list that can contain sub elements and handles scrolling
         auto list = new tsl::elm::List();
@@ -123,19 +123,6 @@ public:
             });
         });
         list->addItem(lan_toggle);
-
-        //Debugging crap
-        list->addItem(new tsl::elm::CategoryHeader("DEBUG INFO:", true));
-        std::string auto_ip;
-        if (profile.ip_setting_data.ip_address_setting.is_automatic) {
-            auto_ip = "YES";
-        } else {
-            auto_ip = "NO";
-        }
-        list->addItem(new tsl::elm::ListItem("Automatic IP: ", auto_ip));
-        list->addItem(new tsl::elm::ListItem("Current Address: ", ipToString(profile.ip_setting_data.ip_address_setting.current_addr.addr)));
-        list->addItem(new tsl::elm::ListItem("Subnet Mask: ", ipToString(profile.ip_setting_data.ip_address_setting.subnet_mask.addr)));
-        list->addItem(new tsl::elm::ListItem("Default Gateway: ", ipToString(profile.ip_setting_data.ip_address_setting.gateway.addr)));
 
         // Add the list to the frame for it to be drawn
         frame->setContent(list);

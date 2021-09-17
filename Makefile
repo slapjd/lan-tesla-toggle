@@ -38,7 +38,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
 APP_TITLE	:=	tesla-lan-play
-APP_VERSION :=	0.5.0
+APP_VERSION :=	1.0.0
 
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
