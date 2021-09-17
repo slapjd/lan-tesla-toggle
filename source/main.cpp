@@ -1,6 +1,9 @@
 #define TESLA_INIT_IMPL // If you have more than one file using the tesla header, only define this in the main one
 #include <tesla.hpp>    // The Tesla Header
 
+#include <filesystem>
+#include <fstream>
+
 
 class GuiTest : public tsl::Gui {
 public:
@@ -40,7 +43,7 @@ public:
         auto frame = new tsl::elm::OverlayFrame("tesla-lan-play", "v0.5");
 
         // A list that can contain sub elements and handles scrolling
-        auto list = new tsl::elm::List();      
+        auto list = new tsl::elm::List();
 
         //Get current network info
         NifmNetworkProfileData profile;
@@ -54,15 +57,20 @@ public:
         u8 lan_subnet[] = {255,255,0,0};
         u8 lan_gateway[] = {10,13,37,1};
 
-        bool is_auto = profile.ip_setting_data.ip_address_setting.is_automatic;
-        bool is_lan_play_addr =
+        tsl::hlp::doWithSDCardHandle([]{
+            std::filesystem::create_directories("/config/tesla-lan-play");
+        });
+        
+        //if any of these are false, lan play isn't on, it's just some other weird ip configuration
+        bool is_lan_play_active =
+            !profile.ip_setting_data.ip_address_setting.is_automatic &&
             profile.ip_setting_data.ip_address_setting.current_addr.addr[0] == 10 &&
             profile.ip_setting_data.ip_address_setting.current_addr.addr[1] == 13 &&
             compareIp(profile.ip_setting_data.ip_address_setting.subnet_mask.addr, lan_subnet) &&
             compareIp(profile.ip_setting_data.ip_address_setting.gateway.addr, lan_gateway);
 
         //lan_play Toggler
-        auto lan_toggle = new tsl::elm::ToggleListItem("LAN Play", !is_auto && is_lan_play_addr);
+        auto lan_toggle = new tsl::elm::ToggleListItem("LAN Play", is_lan_play_active);
         lan_toggle->setStateChangedListener([lan_subnet, lan_gateway](bool state) {
             tsl::hlp::doWithSmSession([state,lan_subnet,lan_gateway]{
                 nifmInitialize(NifmServiceType_Admin);
@@ -70,7 +78,19 @@ public:
                 nifmGetCurrentNetworkProfile(&profile);
 
                 if (state) {
+                    //Turn on lan play
                     u8 lan_addr[] = {10, 13, rand() % 256, rand() % 253 + 2};
+
+                    if (!profile.ip_setting_data.ip_address_setting.is_automatic) {
+                        //Store static ip info to binary file to avoid text encoding
+                        tsl::hlp::doWithSDCardHandle([&profile]{
+                            std::ofstream out("/config/tesla-lan-play/ip", std::ios::binary);
+                            out.write((char*)profile.ip_setting_data.ip_address_setting.current_addr.addr, 4);
+                            out.write((char*)profile.ip_setting_data.ip_address_setting.subnet_mask.addr, 4);
+                            out.write((char*)profile.ip_setting_data.ip_address_setting.gateway.addr, 4);
+                            out.close();
+                        });
+                    }
 
                     setIp(profile.ip_setting_data.ip_address_setting.current_addr.addr, lan_addr);
                     setIp(profile.ip_setting_data.ip_address_setting.subnet_mask.addr, lan_subnet);
@@ -78,7 +98,21 @@ public:
 
                     profile.ip_setting_data.ip_address_setting.is_automatic = false;
                 } else {
-                    profile.ip_setting_data.ip_address_setting.is_automatic = true;
+                    tsl::hlp::doWithSDCardHandle([&profile]{
+                        if (std::filesystem::exists("/config/tesla-lan-play/ip")) {
+                            //Restore IP config if it's stored
+                            std::ifstream in("/config/tesla-lan-play/ip", std::ios::binary);
+                            in.read((char*)profile.ip_setting_data.ip_address_setting.current_addr.addr, 4);
+                            in.read((char*)profile.ip_setting_data.ip_address_setting.subnet_mask.addr, 4);
+                            in.read((char*)profile.ip_setting_data.ip_address_setting.gateway.addr, 4);
+                            in.close();
+                            std::filesystem::remove("/config/tesla-lan-play/ip");
+
+                            profile.ip_setting_data.ip_address_setting.is_automatic = false;
+                        } else {
+                            profile.ip_setting_data.ip_address_setting.is_automatic = true;
+                        }
+                    });
                 }
 
                 nifmSetNetworkProfile(&profile, &profile.uuid);
